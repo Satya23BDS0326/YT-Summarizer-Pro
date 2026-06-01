@@ -14,4 +14,4 @@ jobs:
       - name: Push to Hugging Face
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: git push --force https://satyaballa:$HF_TOKEN@huggingface.co/spaces/satyaballa/YT-Summarizer-Pro HEAD:main
+        run: git push --force https://satyaballa:$HF_TOKEN@huggingface.co/spaces/satyaballa/YT_Summarizer_Pro HEAD:main
