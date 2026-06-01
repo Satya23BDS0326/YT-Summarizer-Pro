@@ -1,0 +1,33 @@
+# ── Secrets (NEVER commit these) ──────────────────────
+.env
+
+# ── Python cache ───────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# ── Virtual environments ────────────────────────────────
+venv/
+.venv/
+env/
+ENV/
+
+# ── Sentence-transformers model cache ──────────────────
+.cache/
+models/
+
+# ── VS Code ─────────────────────────────────────────────
+.vscode/
+
+# ── macOS ───────────────────────────────────────────────
+.DS_Store
+
+# ── PyInstaller ─────────────────────────────────────────
+dist/
+build/
+*.spec
+
+cookies.txt
+downloads/

@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>YT Summarizer Pro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <link rel="stylesheet" href="/static/style.css">
+  <style>
+    /* ── Page system ─────────────────────────── */
+    .page-view        { display: none; }
+    .page-view.active { display: block; }
+
+    /* ── Video info bar ──────────────────────── */
+    .video-info-bar {
+      display: flex; align-items: center; gap: 14px;
+      padding: 14px 20px; margin-bottom: 0;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-bottom: none;
+      border-radius: 8px 8px 0 0;
+    }
+    .video-thumb {
+      width: 80px; height: 54px; border-radius: 6px;
+      object-fit: cover; flex-shrink: 0;
+      background: var(--bg-soft);
+    }
+    .video-title-text  { font-size: 15px; font-weight: 700; margin-bottom: 2px; }
+    .video-channel-text{ font-size: 12px; color: var(--muted); }
+    .word-count-badge  {
+      margin-left: auto; flex-shrink: 0;
+      background: rgba(59,130,246,.12);
+      color: var(--primary); font-size: 11px; font-weight: 700;
+      padding: 4px 10px; border-radius: 20px; letter-spacing: .3px;
+    }
+    .summary-card.with-meta { border-radius: 0 0 8px 8px; }
+
+    /* ── Stat cards ──────────────────────────── */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 16px; margin-top: 24px;
+    }
+    .stat-box {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 8px; padding: 22px 18px; text-align: center;
+    }
+    .stat-num   { font-size: 38px; font-weight: 800; color: var(--primary); margin-bottom: 4px; }
+    .stat-label { font-size: 12px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
+
+    /* ── History cards ───────────────────────── */
+    .hist-card {
+      display: flex; align-items: center; gap: 14px;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 8px; padding: 14px 18px; cursor: pointer;
+      transition: border-color .2s, transform .15s;
+      max-width: 820px;
+    }
+    .hist-card:hover { border-color: var(--primary); transform: translateY(-2px); }
+    .hist-thumb { width: 72px; height: 48px; border-radius: 5px; object-fit: cover; flex-shrink: 0; background: var(--bg-soft); }
+    .hist-info  { flex: 1; min-width: 0; }
+    .hist-title { font-weight: 700; font-size: 14px; margin-bottom: 3px;
+                  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .hist-meta  { font-size: 12px; color: var(--muted); }
+    .hist-arrow { color: var(--primary); font-size: 16px; flex-shrink: 0; }
+
+    /* ── RAG info box ────────────────────────── */
+    .rag-info {
+      background: linear-gradient(135deg,rgba(59,130,246,.08),rgba(99,102,241,.08));
+      border: 1px solid rgba(59,130,246,.2); border-radius: 8px;
+      padding: 20px; margin-top: 20px; font-size: 14px; line-height: 1.75;
+    }
+    .rag-info strong { color: var(--primary); }
+    .rag-steps { margin: 12px 0 0 4px; display: flex; flex-direction: column; gap: 6px; }
+    .rag-step  { display: flex; gap: 10px; font-size: 13px; color: var(--muted); }
+    .rag-step i { color: var(--primary); width: 16px; margin-top: 2px; }
+
+    /* ── Empty state ─────────────────────────── */
+    .empty-state {
+      text-align: center; padding: 52px 20px; color: var(--muted);
+    }
+    .empty-state i { font-size: 44px; display: block; margin-bottom: 14px; opacity: .3; }
+    .empty-state p { font-size: 15px; }
+  </style>
+</head>
+<body>
+
+  <!-- ═══════════════ SIDEBAR ═══════════════ -->
+  <div class="sidebar">
+    <div class="logo">
+      <i class="fa-brands fa-youtube" style="color:#ef4444;font-size:26px"></i>
+      <span>YT Summarizer<br>Pro</span>
+    </div>
+    <div class="nav-links">
+      <button class="nav-item active" data-page="dashboard">
+        <i class="fa-solid fa-house"></i> Dashboard
+      </button>
+      <button class="nav-item" data-page="history">
+        <i class="fa-solid fa-clock-rotate-left"></i> History
+      </button>
+      <button class="nav-item" data-page="analytics">
+        <i class="fa-solid fa-chart-line"></i> Analytics
+      </button>
+      <button class="nav-item" data-page="ragchat">
+        <i class="fa-solid fa-robot"></i> RAG Chat
+      </button>
+    </div>
+  </div>
+
+  <!-- ═══════════════ MAIN ═══════════════ -->
+  <main class="main-content">
+
+    <div class="topbar">
+      <div>
+        <h1>YouTube Summarizer</h1>
+        <p>RAG-powered summarization and semantic AI retrieval.</p>
+      </div>
+      <button id="themeToggle" class="theme-btn">
+        <i class="fa-solid fa-moon"></i>
+      </button>
+    </div>
+
+    <!-- ═══ DASHBOARD ═══ -->
+    <div class="page-view active" id="page-dashboard">
+
+      <section class="hero-card">
+        <div class="rag-badge"><i class="fa-solid fa-bolt"></i> RAG Powered</div>
+        <h2>Summarize Any YouTube Video</h2>
+        <p>Paste any YouTube link — supports Telugu, Hindi, English and all languages.</p>
+        <div class="input-group">
+          <input type="text" id="youtubeUrl" placeholder="Paste YouTube video URL..."/>
+          <select id="summaryMode">
+            <option value="brief">Quick Overview</option>
+            <option value="detailed">Detailed Analysis</option>
+            <option value="bullet_points">Bullet Points</option>
+            <option value="key_quotes">Key Insights</option>
+          </select>
+        </div>
+        <button id="summarizeBtn" class="summarize-btn">
+          <i class="fa-solid fa-wand-magic-sparkles"></i> Generate Summary
+        </button>
+      </section>
+
+      <!-- Loading -->
+      <section class="loading-section hidden" id="loadingSection">
+        <div class="loading-card">
+          <div class="spinner"></div>
+          <h3 id="loadingHeading">Processing Video...</h3>
+          <div class="loading-steps">
+            <div class="step active" id="step1"><i class="fa-solid fa-file-lines"></i> Fetching transcript</div>
+            <div class="step"        id="step2"><i class="fa-solid fa-brain"></i> Building RAG index</div>
+            <div class="step"        id="step3"><i class="fa-solid fa-sparkles"></i> Generating summary</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Video info + Summary -->
+      <div id="videoInfoBar" class="video-info-bar hidden">
+        <img id="videoThumb" class="video-thumb" src="" alt="thumbnail"/>
+        <div>
+          <div class="video-title-text"  id="videoTitleText"></div>
+          <div class="video-channel-text" id="videoChannelText"></div>
+        </div>
+        <span class="word-count-badge" id="wordCountBadge"></span>
+      </div>
+
+      <section class="summary-section hidden" id="summarySection">
+        <div class="summary-card with-meta">
+          <div class="summary-header">
+            <h2>AI Summary</h2>
+            <button id="copyBtn" class="copy-btn"><i class="fa-solid fa-copy"></i></button>
+          </div>
+          <div id="summaryContent"></div>
+        </div>
+      </section>
+
+      <!-- RAG Chat inline -->
+      <section class="chat-section hidden" id="chatSection">
+        <div class="chat-card">
+          <h2><i class="fa-solid fa-robot" style="color:var(--primary);margin-right:8px"></i>Ask Questions About This Video</h2>
+          <p style="font-size:13px;color:var(--muted);margin:4px 0 16px">Powered by RAG — answers come only from the actual transcript.</p>
+          <div class="chat-messages" id="chatMessages"></div>
+          <div class="chat-input-group">
+            <input type="text" id="chatInput" placeholder="What is this video about? Who is speaking?..."/>
+            <button id="askBtn"><i class="fa-solid fa-paper-plane"></i></button>
+          </div>
+        </div>
+      </section>
+
+    </div><!-- /page-dashboard -->
+
+    <!-- ═══ HISTORY ═══ -->
+    <div class="page-view" id="page-history">
+      <section class="hero-card" style="margin-bottom:16px">
+        <h2><i class="fa-solid fa-clock-rotate-left" style="color:var(--primary);margin-right:10px"></i>History</h2>
+        <p style="color:var(--muted)">Click any entry to reload that summary.</p>
+      </section>
+      <div id="history-list" style="display:flex;flex-direction:column;gap:10px"></div>
+    </div>
+
+    <!-- ═══ ANALYTICS ═══ -->
+    <div class="page-view" id="page-analytics">
+      <section class="hero-card">
+        <h2><i class="fa-solid fa-chart-line" style="color:var(--primary);margin-right:10px"></i>Analytics</h2>
+        <p style="color:var(--muted)">Your usage across all summarized videos.</p>
+        <div class="stats-row">
+          <div class="stat-box"><div class="stat-num" id="stat-total">0</div><div class="stat-label">Videos Summarized</div></div>
+          <div class="stat-box"><div class="stat-num" id="stat-words">0</div><div class="stat-label">Words Generated</div></div>
+          <div class="stat-box"><div class="stat-num" id="stat-mode" style="font-size:20px">—</div><div class="stat-label">Favorite Mode</div></div>
+          <div class="stat-box"><div class="stat-num" id="stat-week">0</div><div class="stat-label">This Week</div></div>
+        </div>
+      </section>
+    </div>
+
+    <!-- ═══ RAG CHAT ═══ -->
+    <div class="page-view" id="page-ragchat">
+      <section class="hero-card">
+        <h2><i class="fa-solid fa-robot" style="color:var(--primary);margin-right:10px"></i>RAG Chat</h2>
+        <p style="color:var(--muted)">Deep-dive into any video with AI-powered Q&A.</p>
+        <div class="rag-info">
+          <strong>How RAG (Retrieval-Augmented Generation) works here:</strong>
+          <div class="rag-steps">
+            <div class="rag-step"><i class="fa-solid fa-1"></i><span>Transcript is extracted from the YouTube video (Telugu, Hindi, English — any language).</span></div>
+            <div class="rag-step"><i class="fa-solid fa-2"></i><span>Text is split into 400-word overlapping chunks and embedded into 384-dimensional vectors using <strong>sentence-transformers</strong>.</span></div>
+            <div class="rag-step"><i class="fa-solid fa-3"></i><span>All vectors are stored in a <strong>FAISS</strong> index for fast cosine similarity search.</span></div>
+            <div class="rag-step"><i class="fa-solid fa-4"></i><span>When you ask a question, it's embedded and the top 4 matching chunks are retrieved.</span></div>
+            <div class="rag-step"><i class="fa-solid fa-5"></i><span>Retrieved chunks + your question are sent to <strong>Groq LLaMA-3.3-70b</strong> for a precise, grounded answer.</span></div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
