@@ -2,6 +2,10 @@
 //  YT Summarizer Pro — app.js
 // ════════════════════════════════════════════════════════════
 
+// ── CONFIGURATION ───────────────────────────────────────────
+// REPLACE THIS WITH YOUR HUGGING FACE SPACE URL
+const API_BASE = "https://YOUR-HUGGINGFACE-SPACE-URL.hf.space"; 
+
 // ── Element refs ────────────────────────────────────────────
 const summarizeBtn   = document.getElementById("summarizeBtn");
 const youtubeUrl     = document.getElementById("youtubeUrl");
@@ -248,7 +252,8 @@ async function summarizeVideo() {
   startSteps();
 
   try {
-    const res = await fetch("/summarize", {
+    // UPDATED WITH API_BASE
+    const res = await fetch(`${API_BASE}/summarize`, {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
       body:    JSON.stringify({ url, mode }),
@@ -292,7 +297,7 @@ async function summarizeVideo() {
   } catch (err) {
     console.error(err);
     summarySection.classList.remove("hidden");
-    summaryContent.innerHTML = `<p class="error-message">Something went wrong. Check the terminal for details.</p>`;
+    summaryContent.innerHTML = `<p class="error-message">Something went wrong. Check the console for details.</p>`;
   } finally {
     stopSteps();
     loadingSection.classList.add("hidden");
@@ -316,7 +321,8 @@ async function askQuestion() {
   askBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
 
   try {
-    const res  = await fetch("/ask", {
+    // UPDATED WITH API_BASE
+    const res  = await fetch(`${API_BASE}/ask`, {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
       body:    JSON.stringify({ video_id: currentVideoId, question }),
