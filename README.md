@@ -1,3 +1,12 @@
+---
+title: YT Summarizer Pro
+emoji: 🎬
+colorFrom: red
+colorTo: blue
+sdk: docker
+app_port: 7860
+pinned: false
+---
 # 🎬 VidDigest AI — YouTube Summarizer with RAG
 
 A portfolio-ready AI web app that summarizes any YouTube video and lets you
