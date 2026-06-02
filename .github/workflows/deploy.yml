@@ -11,18 +11,28 @@ jobs:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      
-      # This step strips out the images right before sending the code to Hugging Face
-      - name: Clean binary files for Hugging Face
-        run: |
-          git config --global user.email "actions@github.com"
-          git config --global user.name "GitHub Actions"
-          git rm -r --cached screenshots/ || true
-          rm -rf screenshots/
-          git add -A
-          git commit -m "Strip binary files for HF deployment" || true
 
-      - name: Push to Hugging Face
+      - name: Prepare and Push Clean Build
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: git push --force https://satyaballa:$HF_TOKEN@huggingface.co/spaces/satyaballa/YT_Summarizer_Pro HEAD:main
+        run: |
+          # 1. Permanently wipe the image folder inside the runner
+          rm -rf screenshots/
+          
+          # 2. Destroy the local git history tracking container to erase binary footprint
+          rm -rf .git
+          
+          # 3. Create a brand new, detached git instance
+          git init
+          git config --global user.email "actions@github.com"
+          git config --global user.name "GitHub Actions"
+          
+          # 4. Force a clean main branch context
+          git checkout -b main
+          
+          # 5. Stage and package only your code files
+          git add .
+          git commit -m "Deploying pristine asset build"
+          
+          # 6. Push this single clean snapshot to Hugging Face
+          git push --force https://satyaballa:$HF_TOKEN@huggingface.co/spaces/satyaballa/YT_Summarizer_Pro main:main
