@@ -3,7 +3,7 @@ fastapi==0.115.0
 uvicorn[standard]==0.30.6
 python-dotenv==1.0.1
 
-# ── LLM (Groq — fastest free LLM ~2 sec) ──────────────
+# ── LLM ───────────────────────────────────────────────
 groq
 
 # ── Transcript ────────────────────────────────────────
@@ -12,9 +12,13 @@ yt-dlp
 assemblyai
 
 # ── RAG ───────────────────────────────────────────────
-sentence-transformers
-faiss-cpu
-numpy
+# FIX: pin these two together — newer versions break
+# all-MiniLM-L6-v2 loading on Python 3.10 (HF environment)
+# Error was: "Unrecognized processing class" in transformers>=4.50
+sentence-transformers==2.7.0
+transformers==4.41.2
+faiss-cpu==1.8.0
+numpy==1.26.4
 
 # ── Misc ──────────────────────────────────────────────
 requests
