@@ -488,7 +488,7 @@ def groq_summary(transcript, mode):
 
     prompt = PROMPTS.get(mode, PROMPTS["brief"])
 
-    short_transcript = transcript[:4500]
+    short_transcript = transcript[:2500]
 
     response = groq_client.chat.completions.create(
 
@@ -518,7 +518,7 @@ def groq_summary(transcript, mode):
 
         temperature=0.3,
 
-        max_tokens=500,
+        max_tokens=400,
     )
 
     return response.choices[0].message.content

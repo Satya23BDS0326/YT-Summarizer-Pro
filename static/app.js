@@ -4,7 +4,8 @@
 
 // ── CONFIGURATION ───────────────────────────────────────────
 // REPLACE THIS WITH YOUR HUGGING FACE SPACE URL
-const API_BASE = "https://YOUR-HUGGINGFACE-SPACE-URL.hf.space"; 
+
+const API_BASE = "http://127.0.0.1:8000";
 
 // ── Element refs ────────────────────────────────────────────
 const summarizeBtn   = document.getElementById("summarizeBtn");

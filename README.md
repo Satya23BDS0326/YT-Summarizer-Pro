@@ -1,9 +1,21 @@
-# 🎬 VidDigest AI — YouTube Summarizer with RAG
+# 🎬 YT Summarizer Pro
 
-A portfolio-ready AI web app that summarizes any YouTube video and lets you
-chat with it using RAG (Retrieval-Augmented Generation).
+> **RAG-powered YouTube video summarizer** — paste any YouTube link, get an AI-generated summary in seconds, and ask deep questions about the video using Retrieval-Augmented Generation.
 
-**100% free stack — no credit card needed.**
+[![Python](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python&logoColor=white)](https://python.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![Groq](https://img.shields.io/badge/LLM-Groq%20LLaMA%203.3--70b-orange)](https://console.groq.com)
+[![AssemblyAI](https://img.shields.io/badge/ASR-AssemblyAI-purple)](https://assemblyai.com)
+[![FAISS](https://img.shields.io/badge/Vector%20DB-FAISS-red)](https://github.com/facebookresearch/faiss)
+[![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
+
+---
+
+## 📸 Demo
+
+| Dashboard | Summary Output | RAG Q&A |
+|---|---|---|
+| ![dashboard](screenshots/dashboard.png) | ![summary](screenshots/summary.png) | ![chat](screenshots/chat.png) |
 
 ---
 
@@ -80,7 +92,7 @@ chat with it using RAG (Retrieval-Augmented Generation).
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/Satya23BDS0326/YT-Summarizer-Pro.git
+git clone https://github.com/YOUR_USERNAME/yt-summarizer-pro.git
 cd yt-summarizer-pro
 ```
 
@@ -304,10 +316,23 @@ Answers a question using RAG on the indexed transcript.
 
 ---
 
-## 💡 Free Tier Limits (Gemini)
+## 🗺️ Roadmap
 
-- 15 requests per minute
-- 1,500 requests per day
-- No credit card required
+- [ ] PDF export of summaries
+- [ ] Support for playlist summarization
+- [ ] User authentication + cloud history sync
+- [ ] Multilingual summary output (answer in Telugu/Hindi)
+- [ ] Chrome extension for one-click summarization
 
-More than enough for a portfolio project or demo.
+---
+
+## 🙏 Acknowledgements
+
+- [Groq](https://groq.com) — fastest free LLM inference
+- [AssemblyAI](https://assemblyai.com) — state-of-the-art speech recognition
+- [FAISS](https://github.com/facebookresearch/faiss) — Facebook AI Similarity Search
+- [sentence-transformers](https://sbert.net) — semantic text embeddings
+- [yt-dlp](https://github.com/yt-dlp/yt-dlp) — YouTube media downloader
+
+---
+
