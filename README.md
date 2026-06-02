@@ -1,3 +1,12 @@
+---
+title: YT Summarizer Pro
+emoji: 🎬
+colorFrom: red
+colorTo: blue
+sdk: docker
+app_port: 7860
+pinned: false
+---
 # 🎬 YT Summarizer Pro
 
 > **RAG-powered YouTube video summarizer** — paste any YouTube link, get an AI-generated summary in seconds, and ask deep questions about the video using Retrieval-Augmented Generation.
