@@ -154,12 +154,12 @@ def normalize(items):
     return clean(" ".join(parts))
 
 # ─────────────────────────────────────────────
-# PRODUCTION API GATEWAY (Supadata Universal Layer)
+# PRODUCTION API GATEWAY (Supadata Unblocked Layer)
 # ─────────────────────────────────────────────
 
 def layer0_supadata_gateway(video_id: str):
     if not SUPADATA_KEY:
-        print("⚡ Layer0 Skipped: SUPADATA_API_KEY environment variable is empty.")
+        print("⚡ Layer0 Skipped: SUPADATA_API_KEY variable is empty.")
         return None
     try:
         url = "https://api.supadata.ai/v1/transcript"
@@ -167,28 +167,72 @@ def layer0_supadata_gateway(video_id: str):
         headers = {"x-api-key": SUPADATA_KEY}
         
         print(f"📡 Querying Supadata Gateway for Video ID: {video_id}...")
-        # 30-second timeout gives uncached videos plenty of time to build proxies live
         response = requests.get(url, params=params, headers=headers, timeout=30)
         print(f"📦 Supadata HTTP Response Status: {response.status_code}")
         
         if response.status_code == 200:
             data = response.json()
-            if isinstance(data, dict):
-                content = data.get("content")
-                if isinstance(content, list):
-                    text = " ".join([item.get("text", "") for item in content if isinstance(item, dict)])
-                elif isinstance(content, str):
-                    text = content
-                else:
-                    text = data.get("text", "")
-                
-                if len(text) > 100:
-                    return clean(text)
+            
+            # Recursive string extraction to capture text fields regardless of schema variation
+            def extract_texts(obj):
+                strings = []
+                if isinstance(obj, dict):
+                    if "text" in obj and isinstance(obj["text"], str):
+                        strings.append(obj["text"])
+                    for v in obj.values():
+                        if isinstance(v, (dict, list)):
+                            strings.extend(extract_texts(v))
+                elif isinstance(obj, list):
+                    for item in obj:
+                        if isinstance(item, str):
+                            strings.append(item)
+                        elif isinstance(item, (dict, list)):
+                            strings.extend(extract_texts(item))
+                return strings
+
+            extracted_strings = extract_texts(data)
+            text = clean(" ".join(extracted_strings))
+            
+            if len(text) > 100:
+                return text
         else:
             print(f"❌ Supadata Error Log Output: {response.text}")
             
     except Exception as e:
         print("💥 Layer0 Ingestion Exception:", e)
+    return None
+
+# ─────────────────────────────────────────────
+# PRODUCTION METADATA FALLBACK ENGINE
+# ─────────────────────────────────────────────
+
+def fetch_supadata_metadata(video_id: str):
+    if not SUPADATA_KEY:
+        return None
+    try:
+        url = "https://api.supadata.ai/v1/metadata"
+        params = {"url": f"https://www.youtube.com/watch?v={video_id}"}
+        headers = {"x-api-key": SUPADATA_KEY}
+        
+        print(f"📡 Querying High-Fidelity Metadata Proxy for Video ID: {video_id}...")
+        response = requests.get(url, params=params, headers=headers, timeout=15)
+        if response.status_code == 200:
+            data = response.json()
+            title = data.get("title", "Unknown Title")
+            description = data.get("description", "")
+            
+            tags_list = data.get("tags", [])
+            tags = ", ".join(tags_list) if isinstance(tags_list, list) else str(tags_list)
+            
+            channel_data = data.get("channel", {})
+            channel = channel_data.get("title", "Unknown Channel") if isinstance(channel_data, dict) else str(channel_data)
+            
+            # Synthesize a clean, detailed text layout representing the video assets
+            metadata_summary = f"Video Title: {title}\nChannel Author: {channel}\nTags/Topics: {tags}\n\nFull Video Context and Description:\n{description}"
+            if len(metadata_summary.strip()) > 50:
+                return clean(metadata_summary)
+    except Exception as e:
+        print("💥 Metadata Fallback Ingestion Exception:", e)
     return None
 
 # ─────────────────────────────────────────────
@@ -332,30 +376,30 @@ def layer3_assemblyai(url):
         with tempfile.TemporaryDirectory() as tmpdir:
 
             ydl_opts = {
+
                 "format": "worstaudio/worst",
+
                 "outtmpl": str(Path(tmpdir) / "%(id)s.%(ext)s"),
+
                 "quiet": True,
+
                 "no_warnings": True,
+
                 "noplaylist": True,
+
                 "cookiefile": str(BASE_DIR / "cookies.txt"),
-                "socket_timeout": 10,
-                # Senior-level workaround: rotate mobile device configurations to strip away bot limits
+
                 "extractor_args": {
                     "youtube": {
-                        "player_client": ["android", "ios", "web_embedded"],
-                        "skip": ["dash", "hls"]
+                        "player_client": ["android"]
                     }
                 },
-                "http_headers": {
-                    "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/605.1.15",
-                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-                    "Accept-Language": "en-US,en;q=0.9",
-                },
+
                 "postprocessors": [{
                     "key": "FFmpegExtractAudio",
                     "preferredcodec": "mp3",
                     "preferredquality": "96",
-                }],
+            }],
             }
 
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -428,16 +472,7 @@ def get_transcript(video_id, url):
         except Exception as e:
             print(f"{name} failed:", e)
 
-    # Return structured technical message for impossible inputs instead of throwing an empty generic error
-    raise RuntimeError(
-        "<h3><i class='fa-solid fa-triangle-exclamation'></i> Live Stream Environment Intercept</h3>"
-        "<p style='font-size:14px; margin: 8px 0;'>This video link is completely un-scrapable by any cloud data layer (likely due to strict privacy locks, age-verification restrictions, or geographic removal).</p>"
-        "<div style='font-size:12px; background:rgba(0,0,0,0.2); padding:10px; border-radius:6px; border:1px solid var(--border); text-align:left; line-height:1.6;'>"
-        "<strong>Pipeline Stage:</strong> Media Asset Acquisition Fail<br>"
-        "<strong>Full-Stack Status:</strong> 100% Operational (FAISS & LLaMA Vector Layers Ready)<br>"
-        "<strong>Production Fix:</strong> Implement enterprise proxy tunnels directly into the scraping parameters."
-        "</div>"
-    )
+    raise RuntimeError("All transcript ingestion pipelines exhausted.")
 
 # ─────────────────────────────────────────────
 # RAG
@@ -624,10 +659,25 @@ def summarize_video(data: VideoRequest):
                 "error": "Invalid YouTube URL."
             }
 
-        transcript = get_transcript(
-            video_id,
-            data.url
-        )
+        transcript = None
+        is_metadata_fallback = False
+        
+        try:
+            transcript = get_transcript(video_id, data.url)
+        except Exception as pipe_err:
+            print(f"⚠️ Primary transcript layers exhausted: {pipe_err}. Initializing metadata fallback context...")
+            
+        # Supreme Guard Layer: Fall back to analyzing high-fidelity video text parameters
+        if not transcript:
+            metadata_context = fetch_supadata_metadata(video_id)
+            if metadata_context:
+                transcript = metadata_context
+                is_metadata_fallback = True
+            else:
+                return {
+                    "success": False,
+                    "error": "YouTube's network firewall completely restricted real-time extraction for this specific asset."
+                }
 
         build_rag(video_id, transcript)
 
@@ -635,6 +685,14 @@ def summarize_video(data: VideoRequest):
             transcript,
             data.mode
         )
+        
+        if is_metadata_fallback:
+            summary = (
+                "### 📝 Context & Description Synthesis\n"
+                "*Notice: This specific asset does not have public subtitle tracks or is restricted geographically. "
+                "The system successfully executed a defensive fallback to index, parse, and vector-map the video's official metadata and detailed contextual description parameters.* \n\n"
+                + summary
+            )
 
         return {
             "success": True,
