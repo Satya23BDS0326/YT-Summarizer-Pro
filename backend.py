@@ -159,16 +159,16 @@ def normalize(items):
 
 def layer0_supadata_gateway(video_id: str):
     if not SUPADATA_KEY:
-        print("⚡ Layer0 Skipped: SUPADATA_API_KEY secret variable is not configured.")
+        print("⚡ Layer0 Skipped: SUPADATA_API_KEY environment variable is empty.")
         return None
     try:
-        # Connect to Supadata's universal extraction layer
         url = "https://api.supadata.ai/v1/youtube/transcript"
         params = {"videoId": video_id}
         headers = {"x-api-key": SUPADATA_KEY}
         
         print(f"📡 Querying Supadata Gateway for Video ID: {video_id}...")
-        response = requests.get(url, params=params, headers=headers, timeout=10)
+        # Increased timeout to 30 seconds to allow internal proxy rotation to finish safely
+        response = requests.get(url, params=params, headers=headers, timeout=30)
         print(f"📦 Supadata HTTP Response Status: {response.status_code}")
         
         if response.status_code == 200:
@@ -188,14 +188,9 @@ def layer0_supadata_gateway(video_id: str):
                 text = " ".join([item.get("text", "") for item in data if isinstance(item, dict)])
                 if len(text) > 100:
                     return clean(text)
-        elif response.status_code == 403 or "region" in response.text.lower() or "country" in response.text.lower():
-            print(f"🌏 Supadata Regional Restriction Intercepted: {response.text}")
-            raise ValueError("GEOGRAPHIC_BLOCK")
         else:
             print(f"❌ Supadata Error Log Output: {response.text}")
             
-    except ValueError as ve:
-        raise ve
     except Exception as e:
         print("💥 Layer0 Ingestion Exception:", e)
     return None
@@ -416,7 +411,6 @@ def layer3_assemblyai(url):
 # ─────────────────────────────────────────────
 
 def get_transcript(video_id, url):
-    is_geo_blocked = False
 
     layers = [
         ("Supadata_Gateway", lambda: layer0_supadata_gateway(video_id)),
@@ -426,25 +420,19 @@ def get_transcript(video_id, url):
     ]
 
     for name, fn in layers:
+
         print(f"▶ Trying {name}")
+
         try:
+
             text = fn()
+
             if text:
                 print(f"✅ {name} success")
                 return text
-        except ValueError as ve:
-            if str(ve) == "GEOGRAPHIC_BLOCK":
-                is_geo_blocked = True
+
         except Exception as e:
             print(f"{name} failed:", e)
-
-    if is_geo_blocked:
-        raise RuntimeError(
-            "Geographic Environment Restriction: This video is country-locked to South Asia (India/Pakistan) by the publisher. "
-            "Because this server and proxy layer run within US/EU cloud nodes, YouTube drops the stream pipeline. "
-            "To resolve in production, append regional proxies directly into the scraping parameters dictionary. "
-            "Please evaluate this application using a globally accessible video asset (e.g., TED Talks or global tech tutorials)."
-        )
 
     raise RuntimeError(
         "Could not get transcript for this video. On Hugging Face: YouTube blocks datacenter IPs. Add your SUPADATA_API_KEY in HF Space Secrets for reliable access."
