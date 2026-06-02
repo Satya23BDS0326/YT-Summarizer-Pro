@@ -153,6 +153,25 @@ def normalize(items):
     return clean(" ".join(parts))
 
 # ─────────────────────────────────────────────
+# UNBLOCKED PUBLIC API LAYER (Bypasses Data-Center Blocks)
+# ─────────────────────────────────────────────
+
+def fetch_unblocked_public_api(video_id: str):
+    try:
+        # Connect to an open edge-cached transcript system that rotates outbound scraping IPs
+        url = f"https://youtube-transcript.ai/transcript/{video_id}.txt"
+        response = requests.get(url, timeout=12)
+        if response.status_code == 200 and response.text.strip():
+            text = response.text
+            # Clean text (removes markdown headers and any timestamp brackets perfectly)
+            cleaned_text = clean(text)
+            if len(cleaned_text) > 100:
+                return cleaned_text
+    except Exception as e:
+        print("Unblocked Public API Layer Redirect error:", e)
+    return None
+
+# ─────────────────────────────────────────────
 # LAYER 1
 # ─────────────────────────────────────────────
 
@@ -368,11 +387,9 @@ def layer3_assemblyai(url):
 def get_transcript(video_id, url):
 
     layers = [
-
+        ("Unblocked_Edge_API", lambda: fetch_unblocked_public_api(video_id)),
         ("Layer1", lambda: layer1_transcript_api(video_id)),
-
         ("Layer2", lambda: layer2_ytdlp_captions(url)),
-
         ("Layer3", lambda: layer3_assemblyai(url)),
     ]
 
