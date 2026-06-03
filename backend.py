@@ -42,6 +42,26 @@ groq_client = Groq(api_key=GROQ_KEY)
 aai.settings.api_key = ASSEMBLYAI_KEY
 
 # ─────────────────────────────────────────────
+# COOKIES — safe runtime loading (never hardcoded)
+# ─────────────────────────────────────────────
+
+COOKIE_FILE = None
+
+_cookie_content = os.getenv("YOUTUBE_COOKIES", "")
+
+if _cookie_content:
+    _tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False)
+    _tmp.write(_cookie_content)
+    _tmp.flush()
+    COOKIE_FILE = _tmp.name
+    print("✅ Cookies loaded from environment secret.")
+elif (BASE_DIR / "cookies.txt").exists():
+    COOKIE_FILE = str(BASE_DIR / "cookies.txt")
+    print("✅ Cookies loaded from local cookies.txt.")
+else:
+    print("⚠️ No cookies found. yt-dlp will run without authentication.")
+
+# ─────────────────────────────────────────────
 # EMBEDDING MODEL
 # ─────────────────────────────────────────────
 
@@ -154,7 +174,7 @@ def normalize(items):
     return clean(" ".join(parts))
 
 # ─────────────────────────────────────────────
-# PRODUCTION API GATEWAY (Supadata Unblocked Layer)
+# LAYER 0 — Supadata Gateway
 # ─────────────────────────────────────────────
 
 def layer0_supadata_gateway(video_id: str):
@@ -165,14 +185,14 @@ def layer0_supadata_gateway(video_id: str):
         url = "https://api.supadata.ai/v1/transcript"
         params = {"url": f"https://www.youtube.com/watch?v={video_id}"}
         headers = {"x-api-key": SUPADATA_KEY}
-        
+
         print(f"📡 Querying Supadata Gateway for Video ID: {video_id}...")
         response = requests.get(url, params=params, headers=headers, timeout=30)
         print(f"📦 Supadata HTTP Response Status: {response.status_code}")
-        
+
         if response.status_code == 200:
             data = response.json()
-            
+
             def extract_texts(obj):
                 strings = []
                 if isinstance(obj, dict):
@@ -191,18 +211,18 @@ def layer0_supadata_gateway(video_id: str):
 
             extracted_strings = extract_texts(data)
             text = clean(" ".join(extracted_strings))
-            
+
             if len(text) > 100:
                 return text
         else:
-            print(f"❌ Supadata Error Log Output: {response.text}")
-            
+            print(f"❌ Supadata Error: {response.text}")
+
     except Exception as e:
-        print("💥 Layer0 Ingestion Exception:", e)
+        print("💥 Layer0 Exception:", e)
     return None
 
 # ─────────────────────────────────────────────
-# PRODUCTION METADATA FALLBACK ENGINE
+# METADATA FALLBACK — Supadata
 # ─────────────────────────────────────────────
 
 def fetch_supadata_metadata(video_id: str):
@@ -212,65 +232,61 @@ def fetch_supadata_metadata(video_id: str):
         url = "https://api.supadata.ai/v1/metadata"
         params = {"url": f"https://www.youtube.com/watch?v={video_id}"}
         headers = {"x-api-key": SUPADATA_KEY}
-        
-        print(f"📡 Querying High-Fidelity Metadata Proxy for Video ID: {video_id}...")
+
+        print(f"📡 Querying Supadata Metadata for Video ID: {video_id}...")
         response = requests.get(url, params=params, headers=headers, timeout=15)
         if response.status_code == 200:
             data = response.json()
             title = data.get("title", "Unknown Title")
             description = data.get("description", "")
-            
+
             tags_list = data.get("tags", [])
             tags = ", ".join(tags_list) if isinstance(tags_list, list) else str(tags_list)
-            
+
             channel_data = data.get("channel", {})
             channel = channel_data.get("title", "Unknown Channel") if isinstance(channel_data, dict) else str(channel_data)
-            
-            metadata_summary = f"Video Title: {title}\nChannel Author: {channel}\nTags/Topics: {tags}\n\nFull Video Context and Description:\n{description}"
+
+            metadata_summary = f"Video Title: {title}\nChannel: {channel}\nTags: {tags}\n\nDescription:\n{description}"
             if len(metadata_summary.strip()) > 50:
                 return clean(metadata_summary)
     except Exception as e:
-        print("💥 Metadata Fallback Ingestion Exception:", e)
+        print("💥 Metadata Fallback Exception:", e)
     return None
 
 # ─────────────────────────────────────────────
-# UNBLOCKED OEMBED METADATA SCRAEP LAYER
+# OEMBED METADATA
 # ─────────────────────────────────────────────
 
-def fetch_unblocked_oembed_meta(video_id: str):
+def fetch_oembed_meta(video_id: str):
     try:
-        # Connect to public un-banable metadata extraction nodes
         url = f"https://noembed.com/embed?url=https://www.youtube.com/watch?v={video_id}"
         response = requests.get(url, timeout=10)
         if response.status_code == 200:
             data = response.json()
             return {
-                "title": data.get("title", "Advanced Informational Subject Video"),
-                "author": data.get("author_name", "Content Educator")
+                "title": data.get("title", "YouTube Video"),
+                "author": data.get("author_name", "Unknown Channel")
             }
     except Exception as e:
-        print("⚠️ oEmbed Scraper Ingestion Error:", e)
+        print("⚠️ oEmbed Error:", e)
     return None
 
 def generate_semantic_knowledge_base(title: str, author: str):
     try:
-        # Programmatically synthesize a deep-dive topical document to fulfill RAG requirements perfectly
         response = groq_client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[
                 {
                     "role": "system",
                     "content": (
-                        "You are a senior computer science and electronics systems engineer. "
-                        "Compile an exhaustive, highly technical educational textbook breakdown "
-                        "discussing the explicit core architectures, programmatic structures, "
-                        "and implementation metrics of the specified video title topic so a vector "
-                        "search model can perform semantic RAG retrieval indexing flawlessly."
+                        "You are a senior educator. "
+                        "Compile a detailed educational breakdown of the given video topic "
+                        "so a vector search model can perform RAG retrieval indexing."
                     )
                 },
                 {
                     "role": "user",
-                    "content": f"Generate a deep-dive knowledge base document for video asset title: '{title}' published by channel author: '{author}'."
+                    "content": f"Generate a knowledge base document for video titled: '{title}' by channel: '{author}'."
                 }
             ],
             temperature=0.3,
@@ -278,7 +294,7 @@ def generate_semantic_knowledge_base(title: str, author: str):
         )
         return clean(response.choices[0].message.content)
     except Exception as e:
-        print("💥 Groq Knowledge Base Expansion Exception:", e)
+        print("💥 Knowledge Base Generation Exception:", e)
     return None
 
 # ─────────────────────────────────────────────
@@ -364,8 +380,10 @@ def layer2_ytdlp_captions(url):
             "skip_download": True,
             "writeautomaticsub": True,
             "writesubtitles": True,
-            "cookiefile": str(BASE_DIR / "cookies.txt"),
         }
+
+        if COOKIE_FILE:
+            ydl_opts["cookiefile"] = COOKIE_FILE
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
 
@@ -422,31 +440,25 @@ def layer3_assemblyai(url):
         with tempfile.TemporaryDirectory() as tmpdir:
 
             ydl_opts = {
-
                 "format": "worstaudio/worst",
-
                 "outtmpl": str(Path(tmpdir) / "%(id)s.%(ext)s"),
-
                 "quiet": True,
-
                 "no_warnings": True,
-
                 "noplaylist": True,
-
-                "cookiefile": str(BASE_DIR / "cookies.txt"),
-
                 "extractor_args": {
                     "youtube": {
                         "player_client": ["android"]
                     }
                 },
-
                 "postprocessors": [{
                     "key": "FFmpegExtractAudio",
                     "preferredcodec": "mp3",
                     "preferredquality": "96",
-            }],
+                }],
             }
+
+            if COOKIE_FILE:
+                ydl_opts["cookiefile"] = COOKIE_FILE
 
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
 
@@ -518,7 +530,7 @@ def get_transcript(video_id, url):
         except Exception as e:
             print(f"{name} failed:", e)
 
-    raise RuntimeError("All transcript ingestion pipelines exhausted.")
+    raise RuntimeError("All transcript layers exhausted.")
 
 # ─────────────────────────────────────────────
 # RAG
@@ -595,13 +607,9 @@ def retrieve(video_id, question, k=3):
 # ─────────────────────────────────────────────
 
 PROMPTS = {
-
     "brief": "Give a short summary.",
-
     "detailed": "Give detailed explanation with headings.",
-
     "bullet_points": "Summarize in bullet points.",
-
     "key_quotes": "Extract important insights.",
 }
 
@@ -620,7 +628,6 @@ def groq_summary(transcript, mode):
         model="llama-3.3-70b-versatile",
 
         messages=[
-
             {
                 "role": "system",
                 "content": (
@@ -631,7 +638,6 @@ def groq_summary(transcript, mode):
                     "Write clean markdown with proper headings and bullet points."
                 ),
             },
-
             {
                 "role": "user",
                 "content": f"{prompt}\n\nTRANSCRIPT:\n{short_transcript}",
@@ -639,7 +645,6 @@ def groq_summary(transcript, mode):
         ],
 
         temperature=0.3,
-
         max_tokens=400,
     )
 
@@ -660,7 +665,6 @@ def groq_answer(video_id, question):
         model="llama-3.3-70b-versatile",
 
         messages=[
-
             {
                 "role": "system",
                 "content": (
@@ -668,7 +672,6 @@ def groq_answer(video_id, question):
                     "Regardless of transcript language, ALWAYS answer in English."
                 ),
             },
-
             {
                 "role": "user",
                 "content": f"Question: {question}\n\nTranscript:\n{context}",
@@ -676,7 +679,6 @@ def groq_answer(video_id, question):
         ],
 
         temperature=0.2,
-
         max_tokens=300,
     )
 
@@ -701,41 +703,36 @@ def summarize_video(data: VideoRequest):
 
         transcript = None
         is_metadata_fallback = False
-        
+
         try:
             transcript = get_transcript(video_id, data.url)
         except Exception as pipe_err:
-            print(f"⚠️ Primary transcript layers exhausted: {pipe_err}. Initializing metadata fallback context...")
+            print(f"⚠️ All transcript layers failed: {pipe_err}. Trying metadata fallback...")
             transcript = fetch_supadata_metadata(video_id)
             if transcript:
                 is_metadata_fallback = True
-                
-        # Supreme Guard Fail-Safe Layer: Catch geo-blocks or timeout dropouts automatically
+
         if not transcript:
-            meta = fetch_unblocked_oembed_meta(video_id)
+            meta = fetch_oembed_meta(video_id)
             if meta:
-                print("🚀 Activating Unbreakable Semantic Knowledge Base Expansion...")
+                print("🚀 Generating knowledge base from video metadata...")
                 transcript = generate_semantic_knowledge_base(meta["title"], meta["author"])
                 is_metadata_fallback = True
 
         if not transcript:
             return {
                 "success": False,
-                "error": "YouTube's network firewall completely restricted real-time extraction for this specific asset."
+                "error": "Could not get transcript for this video. It may be private, region-blocked, or have no captions."
             }
 
         build_rag(video_id, transcript)
 
-        summary = groq_summary(
-            transcript,
-            data.mode
-        )
-        
+        summary = groq_summary(transcript, data.mode)
+
         if is_metadata_fallback:
             summary = (
-                "### 📡 Network Intercept Notice\n"
-                "*Notice: Secure streaming endpoints timed out or were blocked due to geographic constraints. "
-                "The server automatically initialized a **Semantic Synthesis Core** node to index, vector-map, and summarize the verified topic parameters seamlessly.* \n\n"
+                "### ⚠️ Notice\n"
+                "*Could not extract the actual transcript. This summary is based on the video's metadata and description only — not the full content.*\n\n"
                 + summary
             )
 
@@ -761,7 +758,6 @@ def ask_video(data: AskRequest):
     try:
 
         if not data.question.strip():
-
             return {
                 "success": False,
                 "error": "Please type a question."
