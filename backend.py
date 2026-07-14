@@ -1,4 +1,11 @@
 import os
+
+# Must be set BEFORE huggingface_hub / sentence_transformers is imported.
+# Works around a known hf-xet bug where the Xet CAS backend returns
+# 401 Unauthorized when downloading models like all-MiniLM-L6-v2.
+# This forces huggingface_hub to fall back to plain HTTP downloads.
+os.environ["HF_HUB_DISABLE_XET"] = "1"
+
 import re
 import tempfile
 from pathlib import Path
