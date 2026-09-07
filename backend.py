@@ -1,4 +1,13 @@
 import os
+import sys
+
+# Ensure UTF-8 output encoding on Windows consoles to prevent charmap crashes
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
 
 # Must be set BEFORE huggingface_hub / sentence_transformers is imported.
 # Works around a known hf-xet bug where the Xet CAS backend returns
@@ -45,6 +54,66 @@ if not ASSEMBLYAI_KEY:
     raise RuntimeError("ASSEMBLYAI_API_KEY missing in .env")
 
 groq_client = Groq(api_key=GROQ_KEY)
+
+DEFAULT_GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
+FALLBACK_MODELS = [
+    DEFAULT_GROQ_MODEL,
+    "openai/gpt-oss-120b",
+    "qwen/qwen3.8-27b",
+    "openai/gpt-oss-20b",
+    "groq/compound-mini",
+    "qwen/qwen3.6-27b",
+]
+ACTIVE_GROQ_MODEL = DEFAULT_GROQ_MODEL
+
+def call_groq_chat(**kwargs):
+    """
+    Calls Groq chat completions with automatic failover and dynamic discovery.
+    Guarantees resilience against model deprecations, decommissionings, and 404 model_not_found errors.
+    """
+    global ACTIVE_GROQ_MODEL
+    candidates = []
+    for m in [ACTIVE_GROQ_MODEL] + FALLBACK_MODELS:
+        if m and m not in candidates:
+            candidates.append(m)
+
+    last_err = None
+    for model_name in candidates:
+        try:
+            call_kwargs = dict(kwargs)
+            call_kwargs["model"] = model_name
+            resp = groq_client.chat.completions.create(**call_kwargs)
+            ACTIVE_GROQ_MODEL = model_name
+            return resp
+        except Exception as e:
+            err_str = str(e).lower()
+            if any(k in err_str for k in ["model_not_found", "does not exist", "decommissioned", "404", "not have access", "cannot be found"]):
+                print(f"⚠️ Groq model '{model_name}' unavailable ({e}). Trying fallback...")
+                last_err = e
+                continue
+            raise e
+
+    # Dynamic fallback: query available chat models from the Groq account
+    try:
+        available_models = groq_client.models.list()
+        for m in available_models.data:
+            mid = m.id.lower()
+            if any(bad in mid for bad in ["whisper", "guard", "safeguard", "orpheus"]):
+                continue
+            if m.id not in candidates:
+                try:
+                    call_kwargs = dict(kwargs)
+                    call_kwargs["model"] = m.id
+                    resp = groq_client.chat.completions.create(**call_kwargs)
+                    ACTIVE_GROQ_MODEL = m.id
+                    print(f"✅ Recovered with dynamically discovered Groq model: {m.id}")
+                    return resp
+                except Exception:
+                    continue
+    except Exception as dyn_err:
+        print("⚠️ Dynamic model discovery failed:", dyn_err)
+
+    raise last_err or RuntimeError("No compatible Groq chat model available.")
 
 aai.settings.api_key = ASSEMBLYAI_KEY
 
@@ -280,8 +349,7 @@ def fetch_oembed_meta(video_id: str):
 
 def generate_semantic_knowledge_base(title: str, author: str):
     try:
-        response = groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+        response = call_groq_chat(
             messages=[
                 {
                     "role": "system",
@@ -630,9 +698,7 @@ def groq_summary(transcript, mode):
 
     short_transcript = transcript[:2500]
 
-    response = groq_client.chat.completions.create(
-
-        model="llama-3.3-70b-versatile",
+    response = call_groq_chat(
 
         messages=[
             {
@@ -667,9 +733,7 @@ def groq_answer(video_id, question):
 
     context = "\n\n---\n\n".join(chunks)
 
-    response = groq_client.chat.completions.create(
-
-        model="llama-3.3-70b-versatile",
+    response = call_groq_chat(
 
         messages=[
             {
